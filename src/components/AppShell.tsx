@@ -1,4 +1,5 @@
-import { PropsWithChildren, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { PropsWithChildren } from "react";
 import { Bell, Home, Compass, Library, Layers, CreditCard, Gift, Settings } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
@@ -27,7 +28,6 @@ export default function AppShell({ children }: PropsWithChildren) {
 
   const [user, setUser] = useState<SidebarUser>({ display_name: null, email: null });
 
-  // Create a nice avatar letter
   const avatarLetter = useMemo(() => {
     const name = user.display_name?.trim();
     const email = user.email?.trim();
@@ -35,22 +35,16 @@ export default function AppShell({ children }: PropsWithChildren) {
     return base.toUpperCase();
   }, [user.display_name, user.email]);
 
-  const displayName = useMemo(() => {
-    return user.display_name?.trim() || "User";
-  }, [user.display_name]);
+  const displayName = useMemo(() => user.display_name?.trim() || "User", [user.display_name]);
 
-  const email = useMemo(() => {
-    return user.email?.trim() || "";
-  }, [user.email]);
+  const email = useMemo(() => user.email?.trim() || "", [user.email]);
 
   async function loadSidebarUser(sessionUserId?: string, sessionEmail?: string) {
-    // If not logged in, reset
     if (!sessionUserId) {
       setUser({ display_name: null, email: null });
       return;
     }
 
-    // Try to load profile (recommended, because you have profiles table)
     const { data, error } = await supabase
       .from("profiles")
       .select("display_name,email")
@@ -65,7 +59,6 @@ export default function AppShell({ children }: PropsWithChildren) {
       return;
     }
 
-    // Fallback to session email only
     setUser({
       display_name: null,
       email: sessionEmail ?? null,
@@ -80,12 +73,14 @@ export default function AppShell({ children }: PropsWithChildren) {
       if (!mounted) return;
 
       const session = data.session;
-      await loadSidebarUser(session?.user?.id, session?.user?.email ?? null);
+
+      // ✅ FIX: don't pass null; use undefined
+      await loadSidebarUser(session?.user?.id, session?.user?.email);
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      // Keep sidebar in sync with auth changes
-      await loadSidebarUser(session?.user?.id, session?.user?.email ?? null);
+      // ✅ FIX: don't pass null; use undefined
+      await loadSidebarUser(session?.user?.id, session?.user?.email);
     });
 
     return () => {
