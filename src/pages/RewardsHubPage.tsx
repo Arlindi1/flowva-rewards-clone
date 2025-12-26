@@ -141,9 +141,10 @@ export default function RewardsHubPage() {
 
   // ✅ IMPORTANT FIX: referrals should land on a PUBLIC signup page
   const referralCode = (profile?.referral_code ?? "").trim();
-  const referralLink = referralCode
-    ? `${window.location.origin}/register?ref=${encodeURIComponent(referralCode)}`
-    : "";
+const referralLink = referralCode
+  ? `${window.location.origin}/login?ref=${encodeURIComponent(referralCode)}`
+  : "";
+
 
   async function copyReferral() {
     try {
