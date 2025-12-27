@@ -74,9 +74,16 @@ export default function LoginPage() {
   }, [navigate, location.search]);
 
   function getAuthCallbackUrl() {
-    const ref = (localStorage.getItem("referral_code") || "").trim();
-    return ref ? `${SITE_URL}/auth/callback?ref=${encodeURIComponent(ref)}` : `${SITE_URL}/auth/callback`;
-  }
+  const params = new URLSearchParams(location.search);
+  const refFromUrl = (params.get("ref") || params.get("code") || "").trim();
+  const refFromStorage = (localStorage.getItem("referral_code") || "").trim();
+  const ref = refFromUrl || refFromStorage;
+
+  return ref
+    ? `${SITE_URL}/auth/callback?ref=${encodeURIComponent(ref)}`
+    : `${SITE_URL}/auth/callback`;
+}
+
 
   async function signIn() {
     setLoading(true);
@@ -308,7 +315,7 @@ export default function LoginPage() {
                     setMode("login");
                     setError(null);
                     setSuccess(null);
-                    navigate("/login", { replace: true });
+                    navigate(`/login${location.search}`, { replace: true });
                   }}
                 >
                   Log In
@@ -330,7 +337,7 @@ export default function LoginPage() {
                     setMode("signup");
                     setError(null);
                     setSuccess(null);
-                    navigate("/register", { replace: true });
+                    navigate(`/register${location.search}`, { replace: true });
                   }}
                 >
                   Create one

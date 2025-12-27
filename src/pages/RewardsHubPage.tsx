@@ -143,10 +143,8 @@ const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
 
 const referralCode = (profile?.referral_code ?? "").trim();
 const referralLink = referralCode
-  ? `${siteUrl}/register?ref=${encodeURIComponent(referralCode)}`
+  ? `${window.location.origin}/register?ref=${encodeURIComponent(referralCode)}`
   : "";
-
-
 
   async function copyReferral() {
     try {

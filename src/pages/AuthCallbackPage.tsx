@@ -50,20 +50,29 @@ export default function AuthCallbackPage() {
 
         const ref = (refFromUrl || localStorage.getItem("referral_code") || "").trim();
         if (ref) {
-          const onceKey = "referral_apply_attempted:" + ref;
-          if (!sessionStorage.getItem(onceKey)) {
-            sessionStorage.setItem(onceKey, "1");
+          const userId = s.session.user.id; // <-- use the current logged-in user
+          const onceKey = `referral_apply_attempted:${userId}:${ref}`;
 
-            setStatus("Applying referral…");
-            const { data, error: rpcErr } = await supabase.rpc("apply_referral", { ref_code: ref });
-            if (rpcErr) {
-              sessionStorage.removeItem(onceKey);
-              throw rpcErr;
-            }
-
-            console.log("apply_referral result:", data);
-            localStorage.removeItem("referral_code");
+          if (sessionStorage.getItem(onceKey)) {
+            setStatus("Referral already applied. Redirecting.");
+            navigate("/rewards", { replace: true });
+            return;
           }
+
+          sessionStorage.setItem(onceKey, "1");
+
+
+          setStatus("Applying referral…");
+          const { data, error: rpcErr } = await supabase.rpc("apply_referral", { ref_code: ref });
+          if (rpcErr) {
+            sessionStorage.removeItem(onceKey);
+            throw rpcErr;
+          }
+
+          // helpful for debugging:
+          console.log("apply_referral result:", data);
+
+          localStorage.removeItem("referral_code");
         }
 
         setStatus("Done. Redirecting…");
