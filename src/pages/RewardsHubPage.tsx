@@ -139,12 +139,16 @@ export default function RewardsHubPage() {
 
   const spotlightPoints = spotlight?.points_reward ?? 50;
 
-const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
+  const siteUrl =
+    ((import.meta as any).env?.VITE_SITE_URL as string | undefined)?.trim().replace(/\/+$/, "") ||
+    window.location.origin;
 
-const referralCode = (profile?.referral_code ?? "").trim();
-const referralLink = referralCode
-  ? `${window.location.origin}/register?ref=${encodeURIComponent(referralCode)}`
-  : "";
+  const referralCode = (profile?.referral_code ?? "").trim();
+
+  const referralLink = referralCode
+    ? `${siteUrl}/login?ref=${encodeURIComponent(referralCode)}`
+    : "";
+
 
   async function copyReferral() {
     try {
