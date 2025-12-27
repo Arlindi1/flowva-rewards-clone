@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 
+type OtpType = "signup" | "invite" | "magiclink" | "recovery" | "email_change";
+
 export default function AuthCallbackPage() {
   const navigate = useNavigate();
   const [status, setStatus] = useState("Finishing sign-in…");
@@ -10,19 +12,18 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     (async () => {
       try {
+        setError(null);
+
         const url = new URL(window.location.href);
-        const code = url.searchParams.get("code");
 
-        // If you later switch email templates to token-hash links, this will handle them too:
-        const token_hash = url.searchParams.get("token_hash") || url.searchParams.get("token");
-        const type = url.searchParams.get("type") || "email";
-
-        // Some providers put errors in query or hash
+        // Supabase can pass errors in query
         const qErr = url.searchParams.get("error");
         const qErrDesc = url.searchParams.get("error_description");
-        if (qErr) {
-          throw new Error(qErrDesc ? `${qErr}: ${qErrDesc}` : qErr);
-        }
+        if (qErr) throw new Error(qErrDesc ? `${qErr}: ${qErrDesc}` : qErr);
+
+        const code = url.searchParams.get("code");
+        const token_hash = url.searchParams.get("token_hash") || url.searchParams.get("token");
+        const typeParam = (url.searchParams.get("type") || "signup") as OtpType;
 
         if (code) {
           setStatus("Exchanging code for session…");
@@ -32,20 +33,34 @@ export default function AuthCallbackPage() {
           setStatus("Verifying link…");
           const { error } = await supabase.auth.verifyOtp({
             token_hash,
-            type: type as any,
+            type: typeParam,
           });
           if (error) throw error;
         } else {
           setStatus("Checking session…");
         }
 
-        const { data } = await supabase.auth.getSession();
-        if (!data.session) {
-          throw new Error("No session found. Try logging in again.");
+        // Confirm we have a session now
+        const { data: s } = await supabase.auth.getSession();
+        if (!s.session) throw new Error("No session found. Try logging in again.");
+
+        // Apply referral ONCE (and DO NOT ignore rpc errors)
+        const ref = localStorage.getItem("referral_code");
+        if (ref) {
+          setStatus("Applying referral…");
+          const { data, error: rpcErr } = await supabase.rpc("apply_referral", { ref_code: ref });
+          if (rpcErr) throw rpcErr;
+
+          // helpful for debugging:
+          console.log("apply_referral result:", data);
+
+          localStorage.removeItem("referral_code");
         }
 
+        setStatus("Done. Redirecting…");
         navigate("/rewards", { replace: true });
       } catch (e: any) {
+        console.error(e);
         setError(e?.message ?? "Could not complete sign-in.");
         setStatus("Failed.");
       }
@@ -61,12 +76,18 @@ export default function AuthCallbackPage() {
         {error && (
           <div className="mt-4 rounded-xl border border-red-800 bg-red-950/40 p-4 text-red-200">
             {error}
-            <div className="mt-3">
+            <div className="mt-3 flex gap-2">
               <button
                 onClick={() => navigate("/login", { replace: true })}
                 className="rounded-xl bg-white/10 px-4 py-2 text-sm hover:bg-white/15"
               >
                 Go to Login
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                className="rounded-xl bg-white/10 px-4 py-2 text-sm hover:bg-white/15"
+              >
+                Retry
               </button>
             </div>
           </div>

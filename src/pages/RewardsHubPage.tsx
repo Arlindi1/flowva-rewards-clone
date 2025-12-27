@@ -139,11 +139,13 @@ export default function RewardsHubPage() {
 
   const spotlightPoints = spotlight?.points_reward ?? 50;
 
-  // ✅ IMPORTANT FIX: referrals should land on a PUBLIC signup page
-  const referralCode = (profile?.referral_code ?? "").trim();
+const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
+
+const referralCode = (profile?.referral_code ?? "").trim();
 const referralLink = referralCode
-  ? `${window.location.origin}/login?ref=${encodeURIComponent(referralCode)}`
+  ? `${siteUrl}/register?ref=${encodeURIComponent(referralCode)}`
   : "";
+
 
 
   async function copyReferral() {
