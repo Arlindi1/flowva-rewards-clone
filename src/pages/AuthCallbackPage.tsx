@@ -13,10 +13,8 @@ export default function AuthCallbackPage() {
     (async () => {
       try {
         setError(null);
-
         const url = new URL(window.location.href);
 
-        // Supabase can pass errors in query
         const qErr = url.searchParams.get("error");
         const qErrDesc = url.searchParams.get("error_description");
         if (qErr) throw new Error(qErrDesc ? `${qErr}: ${qErrDesc}` : qErr);
@@ -24,6 +22,18 @@ export default function AuthCallbackPage() {
         const code = url.searchParams.get("code");
         const token_hash = url.searchParams.get("token_hash") || url.searchParams.get("token");
         const typeParam = (url.searchParams.get("type") || "signup") as OtpType;
+
+        const isCallback = !!code || !!token_hash;
+
+        // ✅ IMPORTANT: if a session already exists, it can hijack your callback.
+        // Clear it so the callback MUST authenticate the new user.
+        if (isCallback) {
+          const { data: pre } = await supabase.auth.getSession();
+          if (pre.session) {
+            setStatus("Clearing existing session…");
+            await supabase.auth.signOut();
+          }
+        }
 
         if (code) {
           setStatus("Exchanging code for session…");
@@ -40,38 +50,19 @@ export default function AuthCallbackPage() {
           setStatus("Checking session…");
         }
 
-        // Confirm we have a session now
+        // Now it MUST be the new session
         const { data: s } = await supabase.auth.getSession();
         if (!s.session) throw new Error("No session found. Try logging in again.");
 
-        // Apply referral ONCE (and DO NOT ignore rpc errors)
+        // referral from url or localStorage
         const refFromUrl = (url.searchParams.get("ref") || "").trim();
         if (refFromUrl) localStorage.setItem("referral_code", refFromUrl);
 
         const ref = (refFromUrl || localStorage.getItem("referral_code") || "").trim();
         if (ref) {
-          const userId = s.session.user.id; // <-- use the current logged-in user
-          const onceKey = `referral_apply_attempted:${userId}:${ref}`;
-
-          if (sessionStorage.getItem(onceKey)) {
-            setStatus("Referral already applied. Redirecting.");
-            navigate("/rewards", { replace: true });
-            return;
-          }
-
-          sessionStorage.setItem(onceKey, "1");
-
-
           setStatus("Applying referral…");
-          const { data, error: rpcErr } = await supabase.rpc("apply_referral", { ref_code: ref });
-          if (rpcErr) {
-            sessionStorage.removeItem(onceKey);
-            throw rpcErr;
-          }
-
-          // helpful for debugging:
-          console.log("apply_referral result:", data);
-
+          const { error: rpcErr } = await supabase.rpc("apply_referral", { ref_code: ref });
+          if (rpcErr) throw rpcErr;
           localStorage.removeItem("referral_code");
         }
 
