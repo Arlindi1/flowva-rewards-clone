@@ -4,49 +4,73 @@ import { supabase } from "../lib/supabaseClient";
 
 export default function AuthCallbackPage() {
   const navigate = useNavigate();
-  const [msg, setMsg] = useState("Finishing sign-in…");
+  const [status, setStatus] = useState("Finishing sign-in…");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       try {
-        // 1) IMPORTANT: clear any existing session (old account)
-        await supabase.auth.signOut();
-
-        // 2) Exchange the code for a session
         const url = new URL(window.location.href);
         const code = url.searchParams.get("code");
 
+        // If you later switch email templates to token-hash links, this will handle them too:
+        const token_hash = url.searchParams.get("token_hash") || url.searchParams.get("token");
+        const type = url.searchParams.get("type") || "email";
+
+        // Some providers put errors in query or hash
+        const qErr = url.searchParams.get("error");
+        const qErrDesc = url.searchParams.get("error_description");
+        if (qErr) {
+          throw new Error(qErrDesc ? `${qErr}: ${qErrDesc}` : qErr);
+        }
+
         if (code) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { error } = await (supabase.auth as any).exchangeCodeForSession(code);
+          setStatus("Exchanging code for session…");
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) throw error;
+        } else if (token_hash) {
+          setStatus("Verifying link…");
+          const { error } = await supabase.auth.verifyOtp({
+            token_hash,
+            type: type as any,
+          });
+          if (error) throw error;
+        } else {
+          setStatus("Checking session…");
         }
 
-        // 3) Confirm we now have a session
-        const { data, error: sErr } = await supabase.auth.getSession();
-        if (sErr) throw sErr;
-
+        const { data } = await supabase.auth.getSession();
         if (!data.session) {
-          navigate("/login", { replace: true });
-          return;
+          throw new Error("No session found. Try logging in again.");
         }
 
-        setMsg("Signed in ✅ Redirecting…");
-
-        // 4) Hard redirect so EVERYTHING reloads with the new session
-        window.location.replace("/rewards");
+        navigate("/rewards", { replace: true });
       } catch (e: any) {
-        setMsg(e?.message ?? "Auth callback failed");
-        navigate("/login", { replace: true });
+        setError(e?.message ?? "Could not complete sign-in.");
+        setStatus("Failed.");
       }
     })();
   }, [navigate]);
 
   return (
-    <div className="min-h-screen grid place-items-center bg-slate-950 text-white p-6">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-6">
-        <div className="text-lg font-semibold">Auth Callback</div>
-        <div className="mt-2 text-sm text-white/70">{msg}</div>
+    <div className="min-h-screen grid place-items-center bg-slate-950 p-6">
+      <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900/60 p-6 text-white shadow-xl">
+        <h1 className="text-xl font-semibold">Auth Callback</h1>
+        <p className="mt-2 text-slate-300">{status}</p>
+
+        {error && (
+          <div className="mt-4 rounded-xl border border-red-800 bg-red-950/40 p-4 text-red-200">
+            {error}
+            <div className="mt-3">
+              <button
+                onClick={() => navigate("/login", { replace: true })}
+                className="rounded-xl bg-white/10 px-4 py-2 text-sm hover:bg-white/15"
+              >
+                Go to Login
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

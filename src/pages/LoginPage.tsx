@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 
@@ -7,6 +7,12 @@ type Mode = "signup" | "login";
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Use env-defined site URL for production-safe redirects (Vercel), fallback to current origin for dev.
+  const SITE_URL = useMemo(() => {
+    const envUrl = (import.meta as any).env?.VITE_SITE_URL as string | undefined;
+    return (envUrl && envUrl.trim()) ? envUrl.trim().replace(/\/+$/, "") : window.location.origin;
+  }, []);
 
   // Mode (auto based on route, but still toggleable)
   const [mode, setMode] = useState<Mode>("signup");
@@ -107,14 +113,12 @@ export default function LoginPage() {
       return;
     }
 
-    // Referral is stored in localStorage (used later after first login/callback)
-    // const referral = localStorage.getItem("referral_code");
-
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        // ✅ important: always redirect back to your deployed app, not localhost
+        emailRedirectTo: `${SITE_URL}/auth/callback`,
       },
     });
 
@@ -136,8 +140,8 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        // IMPORTANT: OAuth should return to your callback route
-        redirectTo: `${window.location.origin}/auth/callback`,
+        // ✅ OAuth should return to your callback route too
+        redirectTo: `${SITE_URL}/auth/callback`,
       },
     });
 
