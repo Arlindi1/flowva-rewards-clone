@@ -73,6 +73,11 @@ export default function LoginPage() {
     })();
   }, [navigate, location.search]);
 
+  function getAuthCallbackUrl() {
+    const ref = (localStorage.getItem("referral_code") || "").trim();
+    return ref ? `${SITE_URL}/auth/callback?ref=${encodeURIComponent(ref)}` : `${SITE_URL}/auth/callback`;
+  }
+
   async function signIn() {
     setLoading(true);
     setError(null);
@@ -85,6 +90,19 @@ export default function LoginPage() {
     if (error) {
       setError(error.message);
       return;
+    }
+
+    // If this user was referred but didn't go through /auth/callback (e.g. verified elsewhere),
+    // apply the referral on first successful sign-in.
+    try {
+      const ref = (localStorage.getItem("referral_code") || "").trim();
+      if (ref) {
+        const { error: rpcErr } = await supabase.rpc("apply_referral", { ref_code: ref });
+        if (!rpcErr) localStorage.removeItem("referral_code");
+        else console.warn("apply_referral failed:", rpcErr);
+      }
+    } catch (e) {
+      console.warn("apply_referral threw:", e);
     }
 
     navigate("/rewards", { replace: true });
@@ -118,7 +136,7 @@ export default function LoginPage() {
       password,
       options: {
         // ✅ important: always redirect back to your deployed app, not localhost
-        emailRedirectTo: `${SITE_URL}/auth/callback`,
+        emailRedirectTo: getAuthCallbackUrl(),
       },
     });
 
@@ -141,7 +159,7 @@ export default function LoginPage() {
       provider: "google",
       options: {
         // ✅ OAuth should return to your callback route too
-        redirectTo: `${SITE_URL}/auth/callback`,
+        redirectTo: getAuthCallbackUrl(),
       },
     });
 

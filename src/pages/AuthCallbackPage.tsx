@@ -45,16 +45,25 @@ export default function AuthCallbackPage() {
         if (!s.session) throw new Error("No session found. Try logging in again.");
 
         // Apply referral ONCE (and DO NOT ignore rpc errors)
-        const ref = localStorage.getItem("referral_code");
+        const refFromUrl = (url.searchParams.get("ref") || "").trim();
+        if (refFromUrl) localStorage.setItem("referral_code", refFromUrl);
+
+        const ref = (refFromUrl || localStorage.getItem("referral_code") || "").trim();
         if (ref) {
-          setStatus("Applying referral…");
-          const { data, error: rpcErr } = await supabase.rpc("apply_referral", { ref_code: ref });
-          if (rpcErr) throw rpcErr;
+          const onceKey = "referral_apply_attempted:" + ref;
+          if (!sessionStorage.getItem(onceKey)) {
+            sessionStorage.setItem(onceKey, "1");
 
-          // helpful for debugging:
-          console.log("apply_referral result:", data);
+            setStatus("Applying referral…");
+            const { data, error: rpcErr } = await supabase.rpc("apply_referral", { ref_code: ref });
+            if (rpcErr) {
+              sessionStorage.removeItem(onceKey);
+              throw rpcErr;
+            }
 
-          localStorage.removeItem("referral_code");
+            console.log("apply_referral result:", data);
+            localStorage.removeItem("referral_code");
+          }
         }
 
         setStatus("Done. Redirecting…");
