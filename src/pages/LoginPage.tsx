@@ -341,13 +341,7 @@ export default function LoginPage() {
                   }}
                 >
                   Create one
-                </button>
-                <div className="mt-2 text-xs">
-                  Or go to{" "}
-                  <Link className="text-violet-700 hover:underline" to="/login">
-                    /login
-                  </Link>
-                </div>
+                </button>girt
               </>
             )}
           </div>
